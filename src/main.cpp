@@ -128,15 +128,15 @@ json solveMazeAStar(const std::vector<std::vector<int>>& maze,
 }
 
 // **Main Server**
+
+void set_cors_headers(Response& res) {
+    res.set_header("Access-Control-Allow-Origin", "https://dijikstra.netlify.app");
+    res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set_header("Access-Control-Allow-Headers", "Content-Type");
+}
+
 int main() {
     Server svr;
-
-    // CORS Setup
-    svr.set_default_headers({
-        {"Access-Control-Allow-Origin", "https://dijikstra.netlify.app"},
-        {"Access-Control-Allow-Methods", "POST, OPTIONS"},
-        {"Access-Control-Allow-Headers", "Content-Type"}
-    });
 
     // **Dijkstra API Endpoint**
     svr.Post("/api/maze/dijkstra", [](const Request& req, Response& res) {
@@ -148,9 +148,12 @@ int main() {
 
             auto result = solveMazeDijkstra(maze, {start[0], start[1]}, {end[0], end[1]});
             res.set_content(result.dump(), "application/json");
+
+            set_cors_headers(res);  // ✅ Add CORS headers manually
         } catch (const std::exception& e) {
             res.status = 400;
             res.set_content(json({{"error", e.what()}}).dump(), "application/json");
+            set_cors_headers(res);  // ✅ Ensure error responses also have CORS headers
         }
     });
 
@@ -164,21 +167,22 @@ int main() {
 
             auto result = solveMazeAStar(maze, {start[0], start[1]}, {end[0], end[1]});
             res.set_content(result.dump(), "application/json");
+
+            set_cors_headers(res);  // ✅ Add CORS headers manually
         } catch (const std::exception& e) {
             res.status = 400;
             res.set_content(json({{"error", e.what()}}).dump(), "application/json");
+            set_cors_headers(res);  // ✅ Ensure error responses also have CORS headers
         }
     });
 
-    // OPTIONS Handler
-    svr.Options("/api/maze/dijkstra", [](const httplib::Request&, httplib::Response& res) {
-        res.set_header("Access-Control-Allow-Origin", "https://dijikstra.netlify.app");
-        res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
-        res.set_header("Access-Control-Allow-Headers", "Content-Type");
-        res.status = 200;  // Successful preflight response
+    // **Handle OPTIONS Preflight Requests**
+    svr.Options(R"(/api/maze/.*)", [](const Request&, Response& res) {
+        set_cors_headers(res);
+        res.status = 204;  // No content, successful preflight response
     });
 
-
+    // **Start the Server**
     const char* port = std::getenv("PORT");
     int server_port = port ? std::stoi(port) : 8080;  // Default to 8080 if not set
 
