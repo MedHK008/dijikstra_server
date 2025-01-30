@@ -81,6 +81,7 @@ json solveMazeAStar(const std::vector<std::vector<int>>& maze,
     auto heuristic = [&](int x, int y) { return std::abs(x - end.first) + std::abs(y - end.second); };
 
     std::vector<std::vector<int>> gScores(rows, std::vector<int>(cols, INT_MAX));
+    std::vector<std::vector<bool>> visited(rows, std::vector<bool>(cols, false));
     std::vector<std::vector<std::pair<int, int>>> parent(rows, std::vector<std::pair<int, int>>(cols, {-1, -1}));
     std::priority_queue<std::tuple<int, int, int>, std::vector<std::tuple<int, int, int>>, std::greater<>> pq;
     std::vector<std::pair<int, int>> visitedNodes, path;
@@ -94,31 +95,46 @@ json solveMazeAStar(const std::vector<std::vector<int>>& maze,
         auto [fScore, x, y] = pq.top();
         pq.pop();
 
-        if (x == end.first && y == end.second) break;
-        if (gScores[x][y] == INT_MAX) continue;  // Skip if not reachable
-        if (gScores[x][y] + heuristic(x, y) < fScore) continue;
+        // Skip if already visited
+        if (visited[x][y]) continue;
+        visited[x][y] = true;
 
+        // Record visited nodes for visualization
         visitedNodes.emplace_back(x, y);
 
+        // Early exit if end found
+        if (x == end.first && y == end.second) break;
+
         for (const auto& dir : dirs) {
-            int nx = x + dir.first, ny = y + dir.second;
-            if (nx >= 0 && ny >= 0 && nx < rows && ny < cols && maze[nx][ny] == 0) {
-                if (gScores[x][y] == INT_MAX) continue;  // Prevent overflow
-                int tentativeGScore = gScores[x][y] + 1;
-                if (tentativeGScore < gScores[nx][ny]) {
-                    gScores[nx][ny] = tentativeGScore;
-                    parent[nx][ny] = {x, y};
-                    pq.emplace(tentativeGScore + heuristic(nx, ny), nx, ny);
-                }
+            int nx = x + dir.first;
+            int ny = y + dir.second;
+
+            // Check boundaries and walkability
+            if (nx < 0 || ny < 0 || nx >= rows || ny >= cols || maze[nx][ny] != 0)
+                continue;
+
+            // Calculate new gScore (always current gScore + 1)
+            int tentativeGScore = gScores[x][y] + 1;
+            
+            // Update if we found a better path
+            if (tentativeGScore < gScores[nx][ny]) {
+                parent[nx][ny] = {x, y};
+                gScores[nx][ny] = tentativeGScore;
+                int newFScore = tentativeGScore + heuristic(nx, ny);
+                pq.emplace(newFScore, nx, ny);
             }
         }
     }
 
-    // Reconstruct path
-    for (std::pair<int, int> at = end; at != std::make_pair(-1, -1); at = parent[at.first][at.second]) {
-        path.push_back(at);
+    // Reconstruct path (if end is reachable)
+    if (gScores[end.first][end.second] != INT_MAX) {
+        std::pair<int, int> current = end;
+        while (current != std::make_pair(-1, -1)) {
+            path.push_back(current);
+            current = parent[current.first][current.second];
+        }
+        std::reverse(path.begin(), path.end());
     }
-    std::reverse(path.begin(), path.end());
 
     return json{{"visitedNodes", visitedNodes}, {"path", path}};
 }
