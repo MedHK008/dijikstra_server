@@ -133,7 +133,7 @@ int main() {
 
     // CORS Setup
     svr.set_default_headers({
-        {"Access-Control-Allow-Origin", "*"},
+        {"Access-Control-Allow-Origin", "https://dijikstra.netlify.app"},
         {"Access-Control-Allow-Methods", "POST, OPTIONS"},
         {"Access-Control-Allow-Headers", "Content-Type"}
     });
@@ -171,12 +171,19 @@ int main() {
     });
 
     // OPTIONS Handler
-    svr.Options(R"(.*)", [](const Request& req, Response& res) {});
+    svr.Options("/api/maze/dijkstra", [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "https://dijikstra.netlify.app");
+        res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        res.status = 200;  // Successful preflight response
+    });
 
-    std::cout << "Server running on port 8080\n";
 
-    if (!svr.listen("0.0.0.0", 8080)) {  // Allow external connections
-        std::cerr << "Error: Failed to start server on port 8080\n";
+    const char* port = std::getenv("PORT");
+    int server_port = port ? std::stoi(port) : 8080;  // Default to 8080 if not set
+
+    if (!svr.listen("0.0.0.0", server_port)) {
+        std::cerr << "Error: Failed to start server on port " << server_port << "\n";
         return 1;
     }
 

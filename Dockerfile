@@ -16,4 +16,4 @@ RUN mkdir build && \
 
 EXPOSE 8080
 
-CMD ["./build/Dijikstra_backend"]
+CMD ["sh","-c", "./build/Dijikstra_backend"]
