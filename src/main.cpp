@@ -32,45 +32,43 @@ json solveMazeDijkstra(const std::vector<std::vector<int>>& maze,
                        const std::pair<int, int>& end) {
     int rows = maze.size(), cols = maze[0].size();
     std::vector<std::vector<int>> dist(rows, std::vector<int>(cols, INT_MAX));
-    std::vector<std::vector<bool>> visited(rows, std::vector<bool>(cols, false));
-    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
+    std::vector<std::vector<std::pair<int, int>>> parent(rows, std::vector<std::pair<int, int>>(cols, {-1, -1}));
+    std::priority_queue<std::pair<int, std::pair<int, int>>, std::vector<std::pair<int, std::pair<int, int>>>, std::greater<>> pq;
     std::vector<std::pair<int, int>> visitedNodes, path;
 
     dist[start.first][start.second] = 0;
-    pq.emplace(start.first, start.second, 0, 0);
+    pq.emplace(0, start);
 
-    std::vector<std::pair<int, int>> dirs = {{-1,0}, {1,0}, {0,-1}, {0,1}};
+    std::vector<std::pair<int, int>> dirs = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
     while (!pq.empty()) {
-        Node current = pq.top();
+        auto [d, curr] = pq.top();
         pq.pop();
 
-        if (visited[current.x][current.y]) continue;
-        visited[current.x][current.y] = true;
-        visitedNodes.emplace_back(current.x, current.y);
+        int x = curr.first, y = curr.second;
+        if (x == end.first && y == end.second) break;
+        if (dist[x][y] < d) continue;
 
-        if (current.x == end.first && current.y == end.second) {
-            Node* node = &current;
-            while (node) {
-                path.emplace_back(node->x, node->y);
-                node = node->parent;
-            }
-            std::reverse(path.begin(), path.end());
-            break;
-        }
+        visitedNodes.emplace_back(x, y);
 
         for (const auto& dir : dirs) {
-            int nx = current.x + dir.first, ny = current.y + dir.second;
-            if (nx >= 0 && ny >= 0 && nx < rows && ny < cols &&
-                !visited[nx][ny] && maze[nx][ny] == 0) {
-                int newDist = current.distance + 1;
+            int nx = x + dir.first, ny = y + dir.second;
+            if (nx >= 0 && ny >= 0 && nx < rows && ny < cols && maze[nx][ny] == 0) {
+                int newDist = dist[x][y] + 1;
                 if (newDist < dist[nx][ny]) {
                     dist[nx][ny] = newDist;
-                    pq.emplace(nx, ny, newDist, 0, new Node(current));
+                    parent[nx][ny] = {x, y};
+                    pq.emplace(newDist, std::make_pair(nx, ny));
                 }
             }
         }
     }
+
+    // Reconstruct path
+    for (std::pair<int, int> at = end; at != std::make_pair(-1, -1); at = parent[at.first][at.second]) {
+        path.push_back(at);
+    }
+    std::reverse(path.begin(), path.end());
 
     return json{{"visitedNodes", visitedNodes}, {"path", path}};
 }
@@ -83,51 +81,45 @@ json solveMazeAStar(const std::vector<std::vector<int>>& maze,
     auto heuristic = [&](int x, int y) { return std::abs(x - end.first) + std::abs(y - end.second); };
 
     std::vector<std::vector<int>> gScores(rows, std::vector<int>(cols, INT_MAX));
-    std::vector<std::vector<bool>> visited(rows, std::vector<bool>(cols, false));
-    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
+    std::vector<std::vector<std::pair<int, int>>> parent(rows, std::vector<std::pair<int, int>>(cols, {-1, -1}));
+    std::priority_queue<std::tuple<int, int, int>, std::vector<std::tuple<int, int, int>>, std::greater<>> pq;
     std::vector<std::pair<int, int>> visitedNodes, path;
 
     gScores[start.first][start.second] = 0;
-    pq.emplace(start.first, start.second, 0, heuristic(start.first, start.second));
+    pq.emplace(heuristic(start.first, start.second), start.first, start.second);
 
-    std::vector<std::pair<int, int>> dirs = {{-1,0}, {1,0}, {0,-1}, {0,1}};
+    std::vector<std::pair<int, int>> dirs = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
     while (!pq.empty()) {
-        Node current = pq.top();
+        auto [fScore, x, y] = pq.top();
         pq.pop();
 
-        if (visited[current.x][current.y]) continue;
-        visited[current.x][current.y] = true;
-        visitedNodes.emplace_back(current.x, current.y);
+        if (x == end.first && y == end.second) break;
+        if (gScores[x][y] + heuristic(x, y) < fScore) continue;
 
-        if (current.x == end.first && current.y == end.second) {
-            Node* node = &current;
-            while (node) {
-                path.emplace_back(node->x, node->y);
-                node = node->parent;
-            }
-            std::reverse(path.begin(), path.end());
-            break;
-        }
+        visitedNodes.emplace_back(x, y);
 
         for (const auto& dir : dirs) {
-            int nx = current.x + dir.first, ny = current.y + dir.second;
-            if (nx >= 0 && ny >= 0 && nx < rows && ny < cols &&
-                !visited[nx][ny] && maze[nx][ny] == 0) {
-                int tentativeGScore = gScores[current.x][current.y] + 1;
+            int nx = x + dir.first, ny = y + dir.second;
+            if (nx >= 0 && ny >= 0 && nx < rows && ny < cols && maze[nx][ny] == 0) {
+                int tentativeGScore = gScores[x][y] + 1;
                 if (tentativeGScore < gScores[nx][ny]) {
                     gScores[nx][ny] = tentativeGScore;
-                    int fScore = tentativeGScore + heuristic(nx, ny);
-                    pq.emplace(nx, ny, tentativeGScore, fScore, new Node(current));
+                    parent[nx][ny] = {x, y};
+                    pq.emplace(tentativeGScore + heuristic(nx, ny), nx, ny);
                 }
             }
         }
     }
 
+    // Reconstruct path
+    for (std::pair<int, int> at = end; at != std::make_pair(-1, -1); at = parent[at.first][at.second]) {
+        path.push_back(at);
+    }
+    std::reverse(path.begin(), path.end());
+
     return json{{"visitedNodes", visitedNodes}, {"path", path}};
 }
-
-// **Main Server**
 
 void set_cors_headers(Response& res) {
     res.set_header("Access-Control-Allow-Origin", "https://dijikstra.netlify.app");
