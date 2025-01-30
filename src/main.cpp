@@ -95,6 +95,7 @@ json solveMazeAStar(const std::vector<std::vector<int>>& maze,
         pq.pop();
 
         if (x == end.first && y == end.second) break;
+        if (gScores[x][y] == INT_MAX) continue;  // Skip if not reachable
         if (gScores[x][y] + heuristic(x, y) < fScore) continue;
 
         visitedNodes.emplace_back(x, y);
@@ -102,6 +103,7 @@ json solveMazeAStar(const std::vector<std::vector<int>>& maze,
         for (const auto& dir : dirs) {
             int nx = x + dir.first, ny = y + dir.second;
             if (nx >= 0 && ny >= 0 && nx < rows && ny < cols && maze[nx][ny] == 0) {
+                if (gScores[x][y] == INT_MAX) continue;  // Prevent overflow
                 int tentativeGScore = gScores[x][y] + 1;
                 if (tentativeGScore < gScores[nx][ny]) {
                     gScores[nx][ny] = tentativeGScore;
