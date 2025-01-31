@@ -264,9 +264,12 @@ int main() {
 
             auto result = solveBFS(maze, {start[0], start[1]}, {end[0], end[1]});
             res.set_content(result.dump(), "application/json");
+
+            set_cors_headers(res);  // ✅ Add CORS headers manually
         } catch (const std::exception& e) {
             res.status = 400;
             res.set_content(json({{"error", e.what()}}).dump(), "application/json");
+            set_cors_headers(res);  // ✅ Ensure error responses also have CORS headers
         }
     });
 
